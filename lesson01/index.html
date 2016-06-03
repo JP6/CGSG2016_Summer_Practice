@@ -20,12 +20,12 @@
       vec2 c = cord;
       vec2 z = c;
 
-      for (int i = 0; i < 35000; i++)
+      for (int i = 0; i < 350; i++)
         {
            if (i > max)
               break;
            z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
-           if ((z.x * z.x + z.y * z.y) > 2.0 * 2.0)
+           if ((z.x * z.x + z.y * z.y) > float(max))
               return i;
         }
       return 0;
@@ -33,9 +33,9 @@
 
     void main( void )
     {
-          vec3 texcolor = texture2D(uSampler,(cord - 2.0) / 3.5).rgb;
-          float n = float(mandelbrot()) / 15.0;
-          gl_FragColor = vec4(texcolor * n, 1);
+         // vec3 texcolor = texture2D(uSampler, (cord - 2.0) / 3.5).rgb;
+          float n = float(mandelbrot());
+          gl_FragColor = vec4(n / 350.0, 0.0, 0.0, 1);
     }
 </script>
 
@@ -207,7 +207,7 @@
 
             mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
             mat4.identity(mvMatrix);
-            mat4.translate(mvMatrix, [-1.5, 0.0, -7.0]);
+
 
             setMatrixUniforms();
             gl.uniform1i(gl.getUniformLocation(shaderProgram, "max"), N);
@@ -225,7 +225,105 @@
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
         }
 
+        /***
+         * Mouse module
+         ***/
 
+        var MoveObject;
+
+        function getMouseOffset(target, e) {
+            var docPos  = getPosition(target);
+            return {x :e.pageX - docPos.x, y :e.pageY - docPos.y}
+        }
+
+
+        /* Smthng strange */
+        function onWheel(e) {
+            e = e || window.event;
+
+            var delta = e.deltaY || e.detail || e.wheelDelta;
+
+            S += delta / 1000.0;
+
+            L = X * (1 + S) / 500.0;
+            B = (500.0 - Y) * (1 + S) / 500.0;
+            R = L + S;
+            T = B + S;
+
+            e.preventDefault ? e.preventDefault() : (e.returnValue = false);
+        }
+
+        var MouseFlag = false;
+
+        function MouseDown(e)
+        {
+            e = fixEvent(e);
+            if (e.which != 1)
+                return;
+            MoveObject = this;
+
+            mouseOffset = getMouseOffset(this, e);
+
+            document.onmousemove = mouseMove;
+            document.onmouseup = mouseUp;
+
+            document.ondragstart = function() { return false };
+            document.body.onselectstart = function() { return false };
+
+            MouseFlag = true;
+        }
+
+        function MouseUp(e)
+        {
+            MouseFlag = false;
+
+            /* Clear */
+            document.onmousemove = null;
+            document.onmouseup = null;
+            document.ondragstart = null;
+            document.body.onselectstart = null;
+
+        }
+
+        function MouseMove(e)
+        {
+            e = fixEvent(e);
+
+            with(MoveObject.style) {
+                position = 'absolute';
+                top = e.pageY - mouseOffset.y + 'px';
+                left = e.pageX - mouseOffset.x + 'px';
+            }
+
+            return false;
+        }
+
+        function getPosition(e)
+        {
+            var left = 0;
+            var top  = 0;
+
+            while (e.offsetParent){
+                left += e.offsetLeft;
+                top  += e.offsetTop;
+                e    = e.offsetParent;
+            }
+
+            left += e.offsetLeft;
+            top  += e.offsetTop;
+
+            return {x:left, y:top};
+        }
+
+        /***
+         * Gl module
+         ***/
+
+        function tick()
+        {
+            window.requestAnimationFrame(tick);
+            drawScene();
+        }
 
         function webGLStart()
         {
@@ -248,12 +346,13 @@
 
 
 <body onload="webGLStart();">
-<a href="http://learningwebgl.com/blog/?p=134">&lt;&lt; Back to Lesson 2</a><br />
 
-<canvas id="lesson02-canvas" style="border: none;" width="500" height="500"></canvas>
+<canvas id="lesson02-canvas" style="border: none;" width="600" height="600"></canvas>
 
-<br/>
-<a href="http://learningwebgl.com/blog/?p=134">&lt;&lt; Back to Lesson 2</a><br />
+<br>
+<input type="text" id="Space" onkeyup="getkey()" value="30">
+</br>
+
 </body>
 
 </html>
