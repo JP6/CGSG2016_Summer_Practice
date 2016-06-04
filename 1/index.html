@@ -10,32 +10,38 @@
     precision mediump float;
 
     uniform sampler2D uSampler;
-    uniform int max;
+    uniform int Max;
+    uniform float Num;
 
     varying vec2 cord;
     varying vec2 vTextureCoord;
 
-    int mandelbrot( void )
+    int Mandelbrot( void )
     {
-      vec2 c = cord;
-      vec2 z = c;
+       vec2 c = cord;
+       vec2 z = c;
 
-      for (int i = 0; i < 350; i++)
-        {
-           if (i > max)
-              break;
-           z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
-           if ((z.x * z.x + z.y * z.y) > float(max))
-              return i;
-        }
+       if (Max <= 0 || Num <= 0.0)
+          return 3;
+
+       for (int i = 0; i < 32000; i++)
+       {
+          if (i > Max)
+             break;
+          z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+          if ((z.x * z.x + z.y * z.y) > Num * Num)
+             return i;
+       }
       return 0;
     }
 
     void main( void )
     {
-         // vec3 texcolor = texture2D(uSampler, (cord - 2.0) / 3.5).rgb;
-          float n = float(mandelbrot());
-          gl_FragColor = vec4(n / 350.0, 0.0, 0.0, 1);
+        float n = float(Mandelbrot());
+        // vec3 texcolor = texture2D(uSampler, (cord - 2.0) / 3.5).rgb;
+        //gl_FragColor = vec4(n / float(Max), 0.0, 0.0, 1);
+        //gl_FragColor = texture2D(uSampler, vec2(n / float(Max) * 256.0, 0));
+        gl_FragColor = texture2D(uSampler, vec2(n / float(Max), n / float(Max) * 3.0));
     }
 </script>
 
@@ -127,9 +133,7 @@
             gl.linkProgram(shaderProgram);
 
             if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS))
-            {
                 alert("Could not initialise shaders");
-            }
 
             gl.useProgram(shaderProgram);
 
@@ -140,18 +144,22 @@
             shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
         }
 
-        function handleLoadedTexture(texture) {
+        function handleLoadedTexture(texture)
+        {
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
 
         var fractTexture;
 
-        function initTexture() {
+        function initTexture()
+        {
             fractTexture = gl.createTexture();
             fractTexture.image = new Image();
             fractTexture.image.onload = function ()
@@ -161,6 +169,15 @@
             fractTexture.image.src = "gradient.png";
         }
 
+        function readFile(path)
+        {
+            var File = new XMLHttpRequest();
+            var txt = "";
+            File.open("GET", path, false);
+            File.send(null);
+            txt = File.responseText;
+            return txt;
+        }
 
         var mvMatrix = mat4.create();
         var pMatrix = mat4.create();
@@ -172,19 +189,20 @@
         }
 
 
-        var N = 30.0;
+        var Max;
+        var Num;
         var triangleVertexPositionBuffer;
         var squareVertexPositionBuffer;
 
         function initBuffers()
         {
-            triangleVertexPositionBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
             var vertices = [
                 0.0,  1.0,  0.0,
                 -1.0, -1.0,  0.0,
                 1.0, -1.0,  0.0
             ];
+            triangleVertexPositionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
             triangleVertexPositionBuffer.itemSize = 3;
             triangleVertexPositionBuffer.numItems = 3;
@@ -201,7 +219,8 @@
             squareVertexPositionBuffer.numItems = 4;
         }
 
-        function drawScene() {
+        function drawScene()
+        {
             gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -210,7 +229,8 @@
 
 
             setMatrixUniforms();
-            gl.uniform1i(gl.getUniformLocation(shaderProgram, "max"), N);
+            gl.uniform1i(gl.getUniformLocation(shaderProgram, "Max"), Max);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "Num"), Num);
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, fractTexture);
@@ -228,91 +248,55 @@
         /***
          * Mouse module
          ***/
-
-        var MoveObject;
-
-        function getMouseOffset(target, e) {
-            var docPos  = getPosition(target);
-            return {x :e.pageX - docPos.x, y :e.pageY - docPos.y}
-        }
-
-
-        /* Smthng strange */
-        function onWheel(e) {
-            e = e || window.event;
-
-            var delta = e.deltaY || e.detail || e.wheelDelta;
-
-            S += delta / 1000.0;
-
-            L = X * (1 + S) / 500.0;
-            B = (500.0 - Y) * (1 + S) / 500.0;
-            R = L + S;
-            T = B + S;
-
-            e.preventDefault ? e.preventDefault() : (e.returnValue = false);
-        }
-
-        var MouseFlag = false;
-
-        function MouseDown(e)
+        var Mouse =
         {
-            e = fixEvent(e);
-            if (e.which != 1)
-                return;
-            MoveObject = this;
+            Flag : false,
+            OldX : 0.0,
+            OldY : 0.0,
+            OldS : 0.0,
+            S : 1.0,
+            X : 0.0,
+            Y : 0.0,
+            PosX : 0.0,
+            PosY : 0.0
+        };
 
-            mouseOffset = getMouseOffset(this, e);
-
-            document.onmousemove = mouseMove;
-            document.onmouseup = mouseUp;
-
-            document.ondragstart = function() { return false };
-            document.body.onselectstart = function() { return false };
-
-            MouseFlag = true;
+        function onWheel(e)
+        {
+            Mouse.S += e.deltaY * Mouse.S * 0.001;
+            Mouse.OldS = Mouse.S;
+            Mouse.X -= (1.0 - Mouse.S / Mouse.OldS) * Mouse.PosX * Mouse.S;
+            Mouse.Y -= (1.0 - Mouse.S / Mouse.OldS) * Mouse.PosY * Mouse.S;
         }
 
-        function MouseUp(e)
+        function MouseDown(c)
         {
-            MouseFlag = false;
+            var e = document.getElementById("lesson02-canvas");
 
-            /* Clear */
-            document.onmousemove = null;
-            document.onmouseup = null;
-            document.ondragstart = null;
-            document.body.onselectstart = null;
-
+            Mouse.Flag = true;
+            Mouse.OldX = 2 * c.clientX / e.width - 1;
+            Mouse.OldY = 1 - 2 * c.clientY / e.height;
         }
 
-        function MouseMove(e)
+        function MouseUp()
         {
-            e = fixEvent(e);
+            Mouse.Flag = false;
+        }
 
-            with(MoveObject.style) {
-                position = 'absolute';
-                top = e.pageY - mouseOffset.y + 'px';
-                left = e.pageX - mouseOffset.x + 'px';
+        function MouseMove(c)
+        {
+            var e = document.getElementById("lesson02-canvas");
+
+            Mouse.X = 2 * c.clientX / e.width - 1;
+            Mouse.Y = 1 - 2 * c.clientY / e.height;
+
+            if (Mouse.Flag)
+            {
+                Mouse.X += (Mouse.PosX - Mouse.OldX) * Mouse.S;
+                Mouse.Y += (Mouse.PosY - Mouse.OldY) * Mouse.S;
+                Mouse.OldX = Mouse.PosX;
+                Mouse.OldY = Mouse.PosY;
             }
-
-            return false;
-        }
-
-        function getPosition(e)
-        {
-            var left = 0;
-            var top  = 0;
-
-            while (e.offsetParent){
-                left += e.offsetLeft;
-                top  += e.offsetTop;
-                e    = e.offsetParent;
-            }
-
-            left += e.offsetLeft;
-            top  += e.offsetTop;
-
-            return {x:left, y:top};
         }
 
         /***
@@ -333,10 +317,26 @@
             initBuffers();
             initTexture();
 
+
+            canvas.addEventListener("wheel", onWheel);
+            canvas.addEventListener("mousemove", MouseMove);
+            window.addEventListener("mouseup", MouseUp);
+            canvas.addEventListener("mousedown", MouseDown);
+
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
             gl.enable(gl.DEPTH_TEST);
 
             drawScene();
+        }
+
+        function Update1()
+        {
+            Num = document.getElementById("Num").value;
+        }
+
+        function Update2()
+        {
+            Max = document.getElementById("Max").value;
         }
 
     </script>
@@ -350,8 +350,11 @@
 <canvas id="lesson02-canvas" style="border: none;" width="600" height="600"></canvas>
 
 <br>
-<input type="text" id="Space" onkeyup="getkey()" value="30">
-</br>
+<input type="range" min="1" max="35000" value="1000" id="Num" onchange="Update1()">
+<br/>
+<br>
+<input type="range" min="1" max="35000" value="25" id="Max" onchange="Update2()">
+<br/>
 
 </body>
 
