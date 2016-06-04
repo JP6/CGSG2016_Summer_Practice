@@ -13,16 +13,18 @@
     uniform int Max;
     uniform float Num;
 
+    uniform vec2 Mouse;
+
+    uniform float S;
+
     varying vec2 cord;
     varying vec2 vTextureCoord;
+
 
     int Mandelbrot( void )
     {
        vec2 c = cord;
        vec2 z = c;
-
-       if (Max <= 0 || Num <= 0.0)
-          return 3;
 
        for (int i = 0; i < 32000; i++)
        {
@@ -37,13 +39,15 @@
 
     void main( void )
     {
-        float n = float(Mandelbrot());
+        int n = Mandelbrot();
         // vec3 texcolor = texture2D(uSampler, (cord - 2.0) / 3.5).rgb;
-        //gl_FragColor = vec4(n / float(Max), 0.0, 0.0, 1);
-        //gl_FragColor = texture2D(uSampler, vec2(n / float(Max) * 256.0, 0));
-        gl_FragColor = texture2D(uSampler, vec2(n / float(Max), n / float(Max) * 3.0));
+        //gl_FragColor = vec4(float(n) / float(Max), 0.0, 0.0, 1);
+        //gl_FragColor = texture2D(uSampler, vec2(float(n) , 0));
+        gl_FragColor = texture2D(uSampler, vec2(float(100 -n) / float(Max), float(100 - n) / float(Max) * 3.0));
     }
-</script>
+
+
+    </script>
 
     <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -57,43 +61,37 @@
 
     void main(void)
     {
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        gl_Position = vec4(aVertexPosition, 1.0);
         cord = aVertexPosition.xy * 2.0;
         vTextureCoord = aTextureCoord;
     }
-</script>
+    </script>
 
 
     <script type="text/javascript">
-
         var gl;
 
-        function initGL(canvas)
-        {
-            try
-            {
+        function initGL(canvas) {
+            try {
                 gl = canvas.getContext("experimental-webgl");
                 gl.viewportWidth = canvas.width;
                 gl.viewportHeight = canvas.height;
-            } catch (e)
-            {}
+            } catch (e) {
+            }
             if (!gl)
                 alert("Could not initialise WebGL, sorry :-(");
         }
 
 
-        function getShader(gl, id)
-        {
+        function getShader(gl, id) {
             var shaderScript = document.getElementById(id);
-            if (!shaderScript)
-            {
+            if (!shaderScript) {
                 return null;
             }
 
             var str = "";
             var k = shaderScript.firstChild;
-            while (k)
-            {
+            while (k) {
                 if (k.nodeType == 3)
                     str += k.textContent;
                 k = k.nextSibling;
@@ -110,8 +108,7 @@
             gl.shaderSource(shader, str);
             gl.compileShader(shader);
 
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-            {
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
                 alert(gl.getShaderInfoLog(shader));
                 return null;
             }
@@ -122,8 +119,7 @@
 
         var shaderProgram;
 
-        function initShaders()
-        {
+        function initShaders() {
             var fragmentShader = getShader(gl, "shader-fs");
             var vertexShader = getShader(gl, "shader-vs");
 
@@ -144,8 +140,7 @@
             shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
         }
 
-        function handleLoadedTexture(texture)
-        {
+        function handleLoadedTexture(texture) {
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
@@ -158,19 +153,16 @@
 
         var fractTexture;
 
-        function initTexture()
-        {
+        function initTexture() {
             fractTexture = gl.createTexture();
             fractTexture.image = new Image();
-            fractTexture.image.onload = function ()
-            {
+            fractTexture.image.onload = function () {
                 handleLoadedTexture(fractTexture);
             };
             fractTexture.image.src = "gradient.png";
         }
 
-        function readFile(path)
-        {
+        function readFile(path) {
             var File = new XMLHttpRequest();
             var txt = "";
             File.open("GET", path, false);
@@ -182,45 +174,46 @@
         var mvMatrix = mat4.create();
         var pMatrix = mat4.create();
 
-        function setMatrixUniforms()
-        {
+        function setMatrixUniforms() {
             gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
             gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
         }
 
 
-        var Max;
-        var Num;
+        var Max = 25;
+        var Num = 2.0;
+
         var triangleVertexPositionBuffer;
         var squareVertexPositionBuffer;
 
-        function initBuffers()
-        {
-            var vertices = [
-                0.0,  1.0,  0.0,
-                -1.0, -1.0,  0.0,
-                1.0, -1.0,  0.0
-            ];
-            triangleVertexPositionBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-            triangleVertexPositionBuffer.itemSize = 3;
-            triangleVertexPositionBuffer.numItems = 3;
+        function initBuffers() {
             squareVertexPositionBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-            vertices = [
-                4.0,  4.0,  0.0,
-                -4.0,  4.0,  0.0,
-                4.0, -4.0,  0.0,
-                -4.0, -4.0,  0.0
+            var vertices = [
+                1.0, 1.0, 0.0,
+                -1.0, 1.0, 0.0,
+                1.0, -1.0, 0.0,
+                -1.0, -1.0, 0.0
             ];
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
             squareVertexPositionBuffer.itemSize = 3;
             squareVertexPositionBuffer.numItems = 4;
         }
 
-        function drawScene()
+        var Mouse =
         {
+            Flag: false,
+            OldX: 0.0,
+            OldY: 0.0,
+            OldS: 0.0,
+            S: 1.0,
+            X: 0.0,
+            Y: 0.0,
+            PosX: 0.0,
+            PosY: 0.0
+        };
+
+        function drawScene() {
             gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -231,6 +224,9 @@
             setMatrixUniforms();
             gl.uniform1i(gl.getUniformLocation(shaderProgram, "Max"), Max);
             gl.uniform1f(gl.getUniformLocation(shaderProgram, "Num"), Num);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "S"), Mouse.S);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "X"), Mouse.X);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "Y"), Mouse.Y);
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, fractTexture);
@@ -239,7 +235,7 @@
 
             gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
             gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,
-                                   squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+                    squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
             setMatrixUniforms();
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
@@ -248,29 +244,15 @@
         /***
          * Mouse module
          ***/
-        var Mouse =
-        {
-            Flag : false,
-            OldX : 0.0,
-            OldY : 0.0,
-            OldS : 0.0,
-            S : 1.0,
-            X : 0.0,
-            Y : 0.0,
-            PosX : 0.0,
-            PosY : 0.0
-        };
 
-        function onWheel(e)
-        {
+        function onWheel(e) {
             Mouse.S += e.deltaY * Mouse.S * 0.001;
             Mouse.OldS = Mouse.S;
             Mouse.X -= (1.0 - Mouse.S / Mouse.OldS) * Mouse.PosX * Mouse.S;
             Mouse.Y -= (1.0 - Mouse.S / Mouse.OldS) * Mouse.PosY * Mouse.S;
         }
 
-        function MouseDown(c)
-        {
+        function MouseDown(c) {
             var e = document.getElementById("lesson02-canvas");
 
             Mouse.Flag = true;
@@ -278,20 +260,17 @@
             Mouse.OldY = 1 - 2 * c.clientY / e.height;
         }
 
-        function MouseUp()
-        {
+        function MouseUp() {
             Mouse.Flag = false;
         }
 
-        function MouseMove(c)
-        {
+        function MouseMove(c) {
             var e = document.getElementById("lesson02-canvas");
 
             Mouse.X = 2 * c.clientX / e.width - 1;
             Mouse.Y = 1 - 2 * c.clientY / e.height;
 
-            if (Mouse.Flag)
-            {
+            if (Mouse.Flag) {
                 Mouse.X += (Mouse.PosX - Mouse.OldX) * Mouse.S;
                 Mouse.Y += (Mouse.PosY - Mouse.OldY) * Mouse.S;
                 Mouse.OldX = Mouse.PosX;
@@ -303,14 +282,12 @@
          * Gl module
          ***/
 
-        function tick()
-        {
+        function tick() {
             window.requestAnimationFrame(tick);
             drawScene();
         }
 
-        function webGLStart()
-        {
+        function webGLStart() {
             var canvas = document.getElementById("lesson02-canvas");
             initGL(canvas);
             initShaders();
@@ -327,15 +304,14 @@
             gl.enable(gl.DEPTH_TEST);
 
             drawScene();
+            tick();
         }
 
-        function Update1()
-        {
+        function Update1() {
             Num = document.getElementById("Num").value;
         }
 
-        function Update2()
-        {
+        function Update2() {
             Max = document.getElementById("Max").value;
         }
 
@@ -350,10 +326,10 @@
 <canvas id="lesson02-canvas" style="border: none;" width="600" height="600"></canvas>
 
 <br>
-<input type="range" min="1" max="35000" value="1000" id="Num" onchange="Update1()">
+<input type="range" min="100" max="1000" value="100" id="Num" onchange="Update1()">
 <br/>
 <br>
-<input type="range" min="1" max="35000" value="25" id="Max" onchange="Update2()">
+<input type="range" min="1" max="10" value="2" id="Max" onchange="Update2()">
 <br/>
 
 </body>
