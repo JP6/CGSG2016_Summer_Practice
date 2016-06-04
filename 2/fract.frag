@@ -11,6 +11,7 @@ uniform float MouseY;
 uniform float MouseS;
 
 varying vec2 Coord;
+varying vec2 vTextureCoord;
 
 int MandelColor( void )
 {
@@ -31,5 +32,6 @@ int MandelColor( void )
 
 void main( void )
 {
-   gl_FragColor = texture2D(uSampler, vec2(float(MandelColor()) / maxNumber * 256.0, 0));
+   //gl_FragColor = texture2D(uSampler, vec2(float(MandelColor()) / maxNumber * 256.0, 0));
+   gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
 }
