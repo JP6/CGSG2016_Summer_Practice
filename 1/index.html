@@ -6,77 +6,6 @@
 
     <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
 
-    <script id="shader-fs" type="x-shader/x-fragment">
-    precision mediump float;
-
-    uniform sampler2D uSampler;
-    uniform int Max;
-    uniform float Num;
-
-    uniform vec2 Mouse;
-
-    uniform float S;
-
-    varying vec2 cord;
-    varying vec2 vTextureCoord;
-
-
-    int Mandelbrot( void )
-    {
-       vec2 c = cord;
-       vec2 z = c;
-
-       for (int i = 0; i < 32000; i++)
-       {
-          if (i > Max)
-             break;
-          z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
-          if ((z.x * z.x + z.y * z.y) > Num * Num)
-             return i;
-       }
-      return 0;
-    }
-
-    void main( void )
-    {
-        int n = Mandelbrot();
-        // vec3 texcolor = texture2D(uSampler, (cord - 2.0) / 3.5).rgb;
-        //gl_FragColor = vec4(float(n) / float(Max), 0.0, 0.0, 1);
-        //gl_FragColor = texture2D(uSampler, vec2(float(n) , 0));
-        gl_FragColor = texture2D(uSampler, vec2(float(100 -n) / float(Max), float(100 - n) / float(Max) * 3.0));
-    }
-
-
-    </script>
-
-    <script id="shader-vs" type="x-shader/x-vertex">
-    attribute vec3 aVertexPosition;
-    attribute vec2 aTextureCoord;
-
-    uniform mat4 uMVMatrix;
-    uniform mat4 uPMatrix;
-
-    varying vec2 cord;
-    varying vec2 vTextureCoord;
-
-    uniform float L;
-    uniform float R;
-    uniform float T;
-    uniform float B;
-
-    void main(void)
-    {
-        gl_Position = vec4(aVertexPosition, 1.0);
-        //cord = aVertexPosition.xy * 2.0;
-        cord = vec2(L + (aVertexPosition.x + 1.0) * 0.5 * (R - L),
-                    B + (-aVertexPosition.y + 1.0) * 0.5 * (T - B));
-        vTextureCoord = aTextureCoord;
-    }
-
-
-    </script>
-
-
     <script type="text/javascript">
         var gl;
 
@@ -91,37 +20,22 @@
                 alert("Could not initialise WebGL, sorry :-(");
         }
 
-
-        function getShader(gl, id) {
-            var shaderScript = document.getElementById(id);
-            if (!shaderScript) {
-                return null;
-            }
-
-            var str = "";
-            var k = shaderScript.firstChild;
-            while (k) {
-                if (k.nodeType == 3)
-                    str += k.textContent;
-                k = k.nextSibling;
-            }
-
+        function getShader(gl, path, type) {
+            str = readFile(path);
             var shader;
-            if (shaderScript.type == "x-shader/x-fragment")
+            if (type == "frag") {
                 shader = gl.createShader(gl.FRAGMENT_SHADER);
-            else if (shaderScript.type == "x-shader/x-vertex")
+            } else if (type == "vert") {
                 shader = gl.createShader(gl.VERTEX_SHADER);
-            else
+            } else {
                 return null;
-
+            }
             gl.shaderSource(shader, str);
             gl.compileShader(shader);
-
             if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
                 alert(gl.getShaderInfoLog(shader));
                 return null;
             }
-
             return shader;
         }
 
@@ -129,8 +43,8 @@
         var shaderProgram;
 
         function initShaders() {
-            var fragmentShader = getShader(gl, "shader-fs");
-            var vertexShader = getShader(gl, "shader-vs");
+            var fragmentShader = getShader(gl, "fract.frag", "frag");
+            var vertexShader = getShader(gl, "fract.vert", "vert");
 
             shaderProgram = gl.createProgram();
             gl.attachShader(shaderProgram, vertexShader);
@@ -168,7 +82,7 @@
             fractTexture.image.onload = function () {
                 handleLoadedTexture(fractTexture);
             };
-            fractTexture.image.src = "gradient.png";
+            fractTexture.image.src = "images.jpg";
         }
 
         function readFile(path) {
