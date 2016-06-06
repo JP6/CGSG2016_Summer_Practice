@@ -59,12 +59,21 @@
     varying vec2 cord;
     varying vec2 vTextureCoord;
 
+    uniform float L;
+    uniform float R;
+    uniform float T;
+    uniform float B;
+
     void main(void)
     {
         gl_Position = vec4(aVertexPosition, 1.0);
-        cord = aVertexPosition.xy * 2.0;
+        //cord = aVertexPosition.xy * 2.0;
+        cord = vec2(L + (aVertexPosition.x + 1.0) * 0.5 * (R - L),
+                    B + (-aVertexPosition.y + 1.0) * 0.5 * (T - B));
         vTextureCoord = aTextureCoord;
     }
+
+
     </script>
 
 
@@ -205,12 +214,20 @@
             Flag: false,
             OldX: 0.0,
             OldY: 0.0,
-            OldS: 0.0,
             S: 1.0,
             X: 0.0,
             Y: 0.0,
             PosX: 0.0,
-            PosY: 0.0
+            PosY: 0.0,
+
+        };
+        var Screen =
+        {
+            L: 0.0,
+            B: 0.0,
+            T: 0.0,
+            R: 0.0,
+            W: 0, H: 0
         };
 
         function drawScene() {
@@ -227,6 +244,10 @@
             gl.uniform1f(gl.getUniformLocation(shaderProgram, "S"), Mouse.S);
             gl.uniform1f(gl.getUniformLocation(shaderProgram, "X"), Mouse.X);
             gl.uniform1f(gl.getUniformLocation(shaderProgram, "Y"), Mouse.Y);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "L"), Screen.L);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "R"), Screen.R);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "T"), Screen.T);
+            gl.uniform1f(gl.getUniformLocation(shaderProgram, "B"), Screen.B);
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, fractTexture);
@@ -244,20 +265,22 @@
         /***
          * Mouse module
          ***/
-
         function onWheel(e) {
-            Mouse.S += e.deltaY * Mouse.S * 0.001;
-            Mouse.OldS = Mouse.S;
-            Mouse.X -= (1.0 - Mouse.S / Mouse.OldS) * Mouse.PosX * Mouse.S;
-            Mouse.Y -= (1.0 - Mouse.S / Mouse.OldS) * Mouse.PosY * Mouse.S;
+            var evt = window.event || e;
+            var rect = document.getElementById("lesson02-canvas").canvas.getBoundingClientRect();
+            Mouse.S = ((((event.wheelDelta) ? event.wheelDelta / 120 : event.detail / -3) || false) > 0) ? (9.0 / 10.0) : (10.0 / 9.0);
+            Mouse.X = evt.clientX - rect.left;
+            Mouse.Y = evt.clientY - rect.top;
+            Screen.W = Screen.R - Screen.L;
+            Screen.H = Screen.T - Screen.B;
+            Screen.L = Screen.L + Mouse.X / canvas.width * Screen.W * (1 - Mouse.S);
+            Screen.B = Screen.B + Mouse.Y / canvas.height * Screen.H * (1 - Mouse.S);
+            Screen.R = Screen.L + Screen.W * Mouse.S;
+            Screen.T = Screen.B + Screen.H * Mouse.S;
         }
 
         function MouseDown(c) {
-            var e = document.getElementById("lesson02-canvas");
-
             Mouse.Flag = true;
-            Mouse.OldX = 2 * c.clientX / e.width - 1;
-            Mouse.OldY = 1 - 2 * c.clientY / e.height;
         }
 
         function MouseUp() {
@@ -265,17 +288,23 @@
         }
 
         function MouseMove(c) {
-            var e = document.getElementById("lesson02-canvas");
-
-            Mouse.X = 2 * c.clientX / e.width - 1;
-            Mouse.Y = 1 - 2 * c.clientY / e.height;
+            var e = window.event;
+            var rect = document.getElementById("lesson02-canvas").getBoundingClientRect();
 
             if (Mouse.Flag) {
-                Mouse.X += (Mouse.PosX - Mouse.OldX) * Mouse.S;
-                Mouse.Y += (Mouse.PosY - Mouse.OldY) * Mouse.S;
-                Mouse.OldX = Mouse.PosX;
-                Mouse.OldY = Mouse.PosY;
+                var deltaX, deltaY;
+
+                deltaX = e.clientX - rect.left - Mouse.X;
+                deltaY = e.clientY - rect.top - Mouse.Y;
+
+                Screen.L -= deltaX / (rect.width / (Screen.R - Screen.L));
+                Screen.R -= deltaX / (rect.width / (Screen.R - Screen.L));
+                Screen.B -= deltaY / (rect.height / (Screen.T - Screen.B));
+                Screen.T -= deltaY / (rect.height / (Screen.T - Screen.B));
             }
+
+            Mouse.X = e.clientX - rect.left;
+            Mouse.Y = e.clientY - rect.top;
         }
 
         /***
@@ -294,11 +323,10 @@
             initBuffers();
             initTexture();
 
-
             canvas.addEventListener("wheel", onWheel);
-            canvas.addEventListener("mousemove", MouseMove);
             window.addEventListener("mouseup", MouseUp);
             canvas.addEventListener("mousedown", MouseDown);
+            canvas.addEventListener("mousemove", MouseMove);
 
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
             gl.enable(gl.DEPTH_TEST);
