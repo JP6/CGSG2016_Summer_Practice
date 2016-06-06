@@ -10,12 +10,12 @@ uniform float MouseY;
 
 uniform float MouseS;
 
-varying vec2 Coord;
+varying vec2 coord;
 varying vec2 vTextureCoord;
 
 int MandelColor( void )
 {
-    vec2 c = Coord * MouseS - vec2(MouseX, MouseY);
+    vec2 c = coord * MouseS - vec2(MouseX, MouseY);
     vec2 z = c;
 
     for (int i = 0; i < 40000; i++)

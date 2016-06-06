@@ -6,5 +6,5 @@
 
     void main(void)
     {
-        gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        gl_FragColor = texture2D(uSampler, vTextureCoord);
     }

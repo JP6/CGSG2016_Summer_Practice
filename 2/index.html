@@ -24,10 +24,16 @@
         };
         var Screen =
         {
-            L, T, B, R
+            L: 0.0,
+            T: 0.0,
+            B: 0.0,
+            R: 0.0,
+            W: 0,
+            H: 0
         };
         var Max;
         var Num;
+        var iter = 2;
         var gl;
 
         function initGL(canvas) {
@@ -71,23 +77,51 @@
         }
 
         var shaderProgram;
+        var shaderProgram1;
 
         function initShaders() {
             var fragmentShader = getShader(gl, "fract.frag", "frag");
             var vertexShader = getShader(gl, "fract.vert", "vert");
+            var fragmentShader1 = getShader(gl, "cube.frag", "frag");
+            var vertexShader1 = getShader(gl, "cube.vert", "vert");
+
+            //fract
             shaderProgram = gl.createProgram();
+
             gl.attachShader(shaderProgram, fragmentShader);
             gl.attachShader(shaderProgram, vertexShader);
             gl.linkProgram(shaderProgram);
+
             if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS))
                 alert("Could not initialise shaders");
+
             gl.useProgram(shaderProgram);
+
             shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
             gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
             shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
             shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
             shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
 
+            //cube
+            shaderProgram1 = gl.createProgram();
+
+            gl.attachShader(shaderProgram1, fragmentShader1);
+            gl.attachShader(shaderProgram1, vertexShader1);
+            gl.linkProgram(shaderProgram1);
+
+            if (!gl.getProgramParameter(shaderProgram1, gl.LINK_STATUS))
+                alert("Could not initialise shaders");
+
+            gl.useProgram(shaderProgram1);
+
+            shaderProgram1.vertexPositionAttribute = gl.getAttribLocation(shaderProgram1, "aVertexPosition");
+            gl.enableVertexAttribArray(shaderProgram1.vertexPositionAttribute);
+
+            shaderProgram1.pMatrixUniform = gl.getUniformLocation(shaderProgram1, "uPMatrix");
+            shaderProgram1.mvMatrixUniform = gl.getUniformLocation(shaderProgram1, "uMVMatrix");
+            shaderProgram1.samplerUniform = gl.getUniformLocation(shaderProgram1, "uSampler");
         }
 
 
@@ -145,6 +179,7 @@
         var cubeVertexPositionBuffer;
         var cubeVertexTextureCoordBuffer;
         var cubeVertexIndexBuffer;
+        var squareVertexPositionBuffer;
 
         function initBuffers() {
             cubeVertexPositionBuffer = gl.createBuffer();
@@ -246,65 +281,144 @@
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
             cubeVertexIndexBuffer.itemSize = 1;
             cubeVertexIndexBuffer.numItems = 36;
+
+            squareVertexPositionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+            var vertices = [
+                1.0, 1.0, 0.0,
+                -1.0, 1.0, 0.0,
+                1.0, -1.0, 0.0,
+                -1.0, -1.0, 0.0
+            ];
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+            squareVertexPositionBuffer.itemSize = 3;
+            squareVertexPositionBuffer.numItems = 4;
         }
 
         var xRot = 0;
         var yRot = 0;
         var zRot = 0;
-
-        function drawScene() {
-            gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        var FramebufferCurrent = 0;
+        function drawFractal()
+        {
             mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+            mat4.identity(mvMatrix);
+            mat4.scale(mvMatrix, [0.5, 0.5, 0.5]);
+            gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+            gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            setMatrixUniforms();
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, neheTexture);
             gl.uniform1i(shaderProgram.samplerUniform, 0);
+            //mat4.translate(mvMatrix, [2.0, 0.0, 0.0]);
+            gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            setMatrixUniforms();
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+        }
+
+        var NumOfIters = 2;
+
+        function drawScene()
+        {
+            var i;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, rttFramebuffer[FramebufferCurrent]);
+            gl.viewport(0, 0, rttFramebuffer[FramebufferCurrent].width, rttFramebuffer[FramebufferCurrent].height);
+            gl.useProgram(shaderProgramfractal);
+            gl.clearColor(1.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            drawFractal();
+            SwapBuffer();
+            for (i = 0; i < NumOfIters; i++)
+            {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, Framebuffer[FramebufferCurrent]);
+                gl.viewport(0, 0, Framebuffer[FramebufferCurrent].width, Framebuffer[FramebufferCurrent].height);
+                gl.clearColor(0.15 * FramebufferCurrent, 0.59 * FramebufferCurrent, 0.30, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                drawCube();
+                SwapBuffer();
+            }
+            SwapBuffer();
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+            gl.clearColor(0.15, 0.30, 0.59, 1.0);
+            drawCube();
+            FramebufferCurrent = 0;
+        }
+
+        function drawCube() {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
             mat4.identity(mvMatrix);
-            mat4.translate(mvMatrix, [-0.32, 0.0, -1]);
+            mat4.translate(mvMatrix, [0.0, 0.0, -5.0]);
+
+            mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
+            mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
+            mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
+
+            gl.useProgram(shaderProgram);
+
             gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
             gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-            gl.uniform1i(gl.getUniformLocation(shaderProgram, "Max"), Max);
-            gl.uniform1f(gl.getUniformLocation(shaderProgram, "Num"), Num);
-            gl.uniform1f(gl.getUniformLocation(shaderProgram, "S"), Mouse.S);
-            gl.uniform2f(gl.getUniformLocation(shaderProgram, "Mouse"), Mouse.X, Mouse.Y);
-            gl.uniform1f(gl.getUniformLocation(shaderProgram, "L"), L);
-            gl.uniform1f(gl.getUniformLocation(shaderProgram, "R"), R);
-            gl.uniform1f(gl.getUniformLocation(shaderProgram, "T"), T);
-            gl.uniform1f(gl.getUniformLocation(shaderProgram, "B"), B);
-            gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-            gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+            gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
+            gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, cubeVertexPositionBuffer.numItems);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, FramebufferTexture[FramebufferCurrent ^ 0x1]);
+            gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+            setMatrixUniforms();
+            gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
         }
 
+        var rttFramebuffer = [];
+        var rttTexture = [];
 
-        var lastTime = 0;
+        function initTextureFramebuffer() {
+            var i;
+            var renderbuffer = [];
+            for(i = 0; i < 2; i++) {
+                rttFramebuffer[i] = gl.createFramebuffer();
+                gl.bindFramebuffer(gl.FRAMEBUFFER, rttFramebuffer[i]);
 
-        function animate()
-        {
-            var timeNow = new Date().getTime();
-            if (lastTime != 0) {
-                var elapsed = timeNow - lastTime;
+                rttFramebuffer[i].width = 2048;
+                rttFramebuffer[i].height = 2048;
 
-                xRot += (90 * elapsed) / 1000.0;
-                yRot += (90 * elapsed) / 1000.0;
-                zRot += (90 * elapsed) / 1000.0;
+                rttTexture[i] = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, rttTexture[i]);
+
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rttFramebuffer[i].width, rttFramebuffer[i].height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+                renderbuffer[i] = gl.createRenderbuffer();
+
+                gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer[i]);
+                gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, rttFramebuffer[i].width, rttFramebuffer[i].height);
+                gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderbuffer[i]);
+                gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rttTexture[i], 0);
+
+                gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+
+                gl.bindTexture(gl.TEXTURE_2D, null);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             }
-            lastTime = timeNow;
         }
-
 
         function tick() {
-            requestAnimFrame(tick);
+            window.requestAnimationFrame(tick);
             drawScene();
-            animate();
         }
 
 
         function webGLStart() {
             var canvas = document.getElementById("lesson05-canvas");
             initGL(canvas);
+            initTextureFramebuffer();
             initShaders();
             initBuffers();
             initTexture();
@@ -312,9 +426,54 @@
             gl.clearColor(0.0, 0.0, 0.0, 1.0);
             gl.enable(gl.DEPTH_TEST);
 
+            drawScene();
             tick();
         }
 
+        /***
+         * Mouse module
+         ***/
+        function onWheel(e) {
+            var evt = window.event || e;
+            var rect = document.getElementById("lesson05-canvas").canvas.getBoundingClientRect();
+            Mouse.S = ((((event.wheelDelta) ? event.wheelDelta / 120 : event.detail / -3) || false) > 0) ? (9.0 / 10.0) : (10.0 / 9.0);
+            Mouse.X = evt.clientX - rect.left;
+            Mouse.Y = evt.clientY - rect.top;
+            Screen.W = Screen.R - Screen.L;
+            Screen.H = Screen.T - Screen.B;
+            Screen.L = Screen.L + Mouse.X / canvas.width * Screen.W * (1 - Mouse.S);
+            Screen.B = Screen.B + Mouse.Y / canvas.height * Screen.H * (1 - Mouse.S);
+            Screen.R = Screen.L + Screen.W * Mouse.S;
+            Screen.T = Screen.B + Screen.H * Mouse.S;
+        }
+
+        function MouseDown(c) {
+            Mouse.Flag = true;
+        }
+
+        function MouseUp() {
+            Mouse.Flag = false;
+        }
+
+        function MouseMove(c) {
+            var e = window.event;
+            var rect = document.getElementById("lesson05-canvas").getBoundingClientRect();
+
+            if (Mouse.Flag) {
+                var deltaX, deltaY;
+
+                deltaX = e.clientX - rect.left - Mouse.X;
+                deltaY = e.clientY - rect.top - Mouse.Y;
+
+                Screen.L -= deltaX / (rect.width / (Screen.R - Screen.L));
+                Screen.R -= deltaX / (rect.width / (Screen.R - Screen.L));
+                Screen.B -= deltaY / (rect.height / (Screen.T - Screen.B));
+                Screen.T -= deltaY / (rect.height / (Screen.T - Screen.B));
+            }
+
+            Mouse.X = e.clientX - rect.left;
+            Mouse.Y = e.clientY - rect.top;
+        }
 
     </script>
 
