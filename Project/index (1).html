@@ -1,0 +1,390 @@
+<html>
+<head>
+    <script src="http://maps.googleapis.com/maps/api/js?sensor=false"></script>
+    <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+
+    <script>
+        var fl = 0, fl2 = 0, fl3 = 0;
+        var context;
+        var wind = new Array(100);
+        var imag = new Array(100);
+
+        function flag()
+        {
+            fl++;
+            if (fl == 4 && fl2 == 1)
+            {
+                colw();
+                context.globalAlpha = 0.5;
+                var my_gradient = context.createLinearGradient(0, 0, 300, 225);
+                var i = 1;
+                for (i = 0; i < 100; i++)
+                  my_gradient.addColorStop(1 / 99 * i, color[i]);
+                //my_gradient.addColorStop(1, "white");
+                context.fillStyle = my_gradient;
+                context.fillRect(0, 0, 1900, 650);
+                context.globalAlpha = 1;
+                fl = 0;
+            }
+
+            if (fl == 4 && fl3 == 1)
+            {
+                wd();
+                context.globalAlpha = 0.5;
+                var i;
+                for (i = 0; i < 100; i++)
+                {
+                    //wind[i] = wind[i].substr(0, 2);
+                    if (wind[i] == "NNE" || wind[i] == "NEE" || wind[i] == "ENE" || wind[i] == "NEN")
+                            wind[i] = "NE";
+                    if (wind[i] == "NNW" || wind[i] == "NWW" || wind[i] == "WNW" || wind[i] == "NWN")
+                            wind[i] = "NW";
+                    if (wind[i] == "SSE" || wind[i] == "SEE" || wind[i] == "ESE" || wind[i] == "SES")
+                        wind[i] = "SE";
+                    if (wind[i] == "SSW" || wind[i] == "SWW" || wind[i] == "WSW" || wind[i] == "SWS")
+                        wind[i] = "SW";
+                    if (wind[i] != "")
+                    {
+                        imag[i] = new Image();
+                        imag[i].a = sx + W * (i % 10) / 9 - L;
+                        imag[i].b = sy + H * ((i - i % 10) / 10) / 9 - D;
+                        imag[i].src = wind[i] + ".png";
+                        imag[i].onload = function() {
+                            context.drawImage(this, this.a * Wp / W, -Hp + this.b * Hp / H, 40, 40);
+                        }
+                    }
+                }
+            context.globalAlpha = 1;
+            fl = 0;
+            }
+
+            if (fl == 4)
+                fl = 0;
+        }
+
+        jQuery(window).ready(function(){
+            g_initialize();
+        });
+
+        var zoom = 3.0;
+
+        var L = 33.0, R = 332.5 / 8.0, U, D;
+
+        var centerx = 57.0;
+        var centery = 33.0;
+
+        var canvas;
+        var k = 332.5 / (Math.pow(2.0, zoom - 1.0));
+        var Wp, Hp, W = k * 4, H = k / 745 * 650;
+        var L = 33.0 - k * 0.5, R = 332.5 / 8.0, U, D = 57 - k * 650 / 475 / 2;
+        var color = new Array(100);
+
+        function g_initialize() {
+
+            k = 332.5 / (Math.pow(2.0, zoom - 1.0)); // 332.5 - магическое число, зависит от размера картинки W. Новое м.ч. = 332.5 / Wстарое * Wовое
+
+            var google_tile1 = "http://maps.google.com/maps/api/staticmap?sensor=false&center=" + centerx + "," + (centery - k * 1.5) % 180 + "&zoom=" + zoom + "&size=475x650";
+            var google_tile2 = "http://maps.google.com/maps/api/staticmap?sensor=false&center=" + centerx + "," + (centery - k * 0.5) % 180 + "&zoom=" + zoom + "&size=475x650";
+            var google_tile3 = "http://maps.google.com/maps/api/staticmap?sensor=false&center=" + centerx + "," + (centery + k * 0.5) % 180 + "&zoom=" + zoom + "&size=475x650";
+            var google_tile4 = "http://maps.google.com/maps/api/staticmap?sensor=false&center=" + centerx + "," + (centery + k * 1.5) % 180 + "&zoom=" + zoom + "&size=475x650";
+            canvas = document.getElementById("myCanvas");
+            var rect = canvas.getBoundingClientRect();
+            Wp = rect.right - rect.left, Hp = rect.bottom - rect.top;
+
+            canvas.onwheel = wheel;
+            canvas.ondrag = drag;
+            canvas.ondragstart = dragstart;
+            canvas.ondragover = dragover;
+            window.ondragover = dragover;
+
+            context = canvas.getContext("2d");
+            var imageObj1 = new Image();
+            var imageObj2 = new Image();
+            var imageObj3 = new Image();
+            var imageObj4 = new Image();
+            imageObj1.src = google_tile1;
+            imageObj2.src = google_tile2;
+            imageObj3.src = google_tile3;
+            imageObj4.src = google_tile4;
+
+          //  L = centery - k / 2.0;
+          //  R = centery + k * 3.5;
+          //  U = centerx + k / 2.0;
+          //  D = centerx - k / 2.0;
+
+           // W = centery * 8;
+          //  H = centerx * 2;
+
+            imageObj1.onload = function(){
+                context.drawImage(imageObj1, 0, 0);
+                flag();
+            }
+
+            imageObj2.onload = function(){
+                context.drawImage(imageObj2, 475, 0);
+                flag();
+            }
+
+            imageObj3.onload = function(){
+                context.drawImage(imageObj3, 475 * 2, 0);
+                flag();
+            }
+
+            imageObj4.onload = function() {
+                context.drawImage(imageObj4, 475 * 3, 0);
+                flag();
+            }
+
+           // wheel();
+        }
+
+        var x = 0.0, y = 0.0;
+        function wheel(event)
+        {
+            var delta;
+            event = event || window.event;
+            getMousePos(event);
+            y = Hp - y;
+
+            if (event.wheelDelta > 0)
+            {
+                delta = event.wheelDelta / 120;
+                if (window.opera) delta = -delta;
+                zoom++;
+                x = (x / Wp * 2 - 1) * W;
+                y = (y / Hp * 2 - 1) * H;
+                L = L + x * 0.5;
+                D = D + y * 0.5;
+                /*U = H / 2 + D;
+                R = W / 2 + L;
+                canterx = L + (R - L) / 8;
+                centery = D + (U - D) / 2;*/
+                //x = x * W / Wp + L;
+                //y = y * H / Hp + D;
+                //x = 33, y = 57;
+                //var cx = x * W / Wp + (centery + k * 1.5 - x * W / Wp) / 2, cy = y * H / Hp + (centerx - y * H / Hp) / 2;
+                var cx = centery + x * 0.5, cy = centerx + y * 0.5;
+                W *= 0.5, H *= 0.5;
+                centery = cx, centerx = cy;
+            }
+            else if (zoom >= 4) {
+                zoom--;
+                x = (x / Wp * 2 - 1) * W;
+                y = (y / Hp * 2 - 1) * H;
+                L = L - x * 1.5;
+                D = D - y * 1.5;
+                /*U = H / 2 + D;
+                 R = W / 2 + L;
+                 canterx = L + (R - L) / 8;
+                 centery = D + (U - D) / 2;*/
+                //x = x * W / Wp + L;
+                //y = y * H / Hp + D;
+                //x = 33, y = 57;
+                //var cx = x * W / Wp + (centery + k * 1.5 - x * W / Wp) / 2, cy = y * H / Hp + (centerx - y * H / Hp) / 2;
+                var cx = centery - x * 1.5 , cy = centerx - y * 1.5;
+                W *= 2, H *= 2;
+                centery = cx, centerx = cy;
+            }
+
+            if (event.preventDefault)  event.preventDefault();
+            event.returnValue = false;
+            g_initialize();
+        }
+
+        function getMousePos(evt)
+        {
+            var rect = canvas.getBoundingClientRect();
+            x = evt.clientX - rect.left;
+            y = evt.clientY - rect.top;
+            return [x, y];
+        }
+
+        var city;
+
+        function getLocalFile( filename )
+        {
+            var txt = '';
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function()
+            {
+                if(xmlhttp.status == 200 && xmlhttp.readyState == 4)
+                    txt = xmlhttp.responseText;
+            };
+            xmlhttp.open("GET", filename, false);
+            xmlhttp.send();
+            return txt;
+        }
+
+        function wether()
+        {
+            var city_id=213; // id города
+            var val = document.getElementById("i_1").value;
+            //var xml = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?id=524901&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml"),
+            //var xml = getLocalFile("forecast.xml"),
+            var xml = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?q=" + val + ",us&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml"),
+                xmlDoc = $.parseXML( xml ),
+                $xml = $( xmlDoc ),
+                $title = $xml.find( "name" );
+
+            city = $title.text();
+            var temp = $xml.find( "temperature" )[0].getAttribute("value");
+            var win = $xml.find("windDirection")[0].getAttribute("name");
+            var winsp = $xml.find("windSpeed")[0].getAttribute("mps");
+            var data = new Date();
+            var year = data.getFullYear();
+            var month = data.getMonth() + 1;
+            var day = data.getDate();
+
+            if (month < 10)
+                month = "0" + month;
+            if (day < 10)
+                day = "0" + day;
+
+            var theElement = document.getElementById("d_1");
+            theElement.innerHTML = city + " <br> " + year + "/" + month + "/" + day + " <br> Temperature: " + temp + " C <br> Wind: " + win + " -- " + winsp + " m/s";
+        }
+
+        var sx = L, sy = H + D;
+        function colw()
+        {
+            // color
+            var xml2;
+            var xmlDoc2;
+            var $xml2;
+            var temp2;
+
+            sx = L, sy = H + D;
+
+            var i, j;
+            for (i = 0; i < 100; i++)
+                {
+                    try {
+                        xml2 = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?lat=" + (sx + H * i / 99) % 90 + "&lon=" + (centery + W * i / 99) % 180 + "&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml");
+                        xmlDoc2 = $.parseXML(xml2);
+                        $xml2 = $(xmlDoc2);
+                        temp2 = $xml2.find("temperature")[0].getAttribute("value");
+                        color[i] = "rgb(" + Math.round(temp2) * 4 + ", 100, 0)";
+
+                    } catch(e) {
+                        xml2 = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?lat=" + (sx + 1 + H * i / 99) % 90 + "&lon=" + (centery + 1 + W * i / 99) % 180 + "&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml");
+                        xmlDoc2 = $.parseXML(xml2);
+                        $xml2 = $(xmlDoc2);
+                        temp2 = $xml2.find("temperature")[0].getAttribute("value");
+                        color[i] = "rgb(" + Math.round(temp2) * 4 + ", 100, 0)";
+                    }
+                }
+            /*var xml2, xmlDoc2, $xml2, temp2;
+            var i;
+            for (i = 0; i < 10; i++) {
+                xml2 = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?lat=" + (centerx + k * Math.sqrt(2) / 2 * (10 - i) / 10) % 90 + "&lon=" + (centery - k * Math.sqrt(2) / 2 * (10 - i) / 10) % 180 + "&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml");
+                xmlDoc2 = $.parseXML(xml2);
+                $xml2 = $(xmlDoc2);
+                temp2 = $xml2.find("temperature")[0].getAttribute("value");
+                color[i] = "rgb(" + Math.round(temp2) * 10 + ", 0, 0)";
+            }
+
+            xml2 = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?lat=" + (centerx) % 90 + "&lon=" + (centery)% 180 + "&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml");
+            xmlDoc2 = $.parseXML( xml2 );
+            $xml2 = $( xmlDoc2 );
+            temp2 = $xml2.find( "temperature" )[0].getAttribute("value");
+            color[i++] = "rgb(" + Math.round(temp2) * 10 + ", 0, 0)";
+
+            for (; i < 21; i++) {
+                xml2 = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?lat=" + (centerx - k * Math.sqrt(2) / 2 * (i - 11 + 1) / 10) % 90 + "&lon=" + (centery + k * Math.sqrt(2) / 2 * (i - 11 + 1) / 10) % 180 + "&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml");
+                xmlDoc2 = $.parseXML(xml2);
+                $xml2 = $(xmlDoc2);
+                temp2 = $xml2.find("temperature")[0].getAttribute("value");
+                temp2 = Math.round(temp2);
+                var r = 255, g = 99.4708025861 * Math.log(temp2) - 161.1195681661, b = 138.5177312231 * Math.log(temp2 - 10) - 305.0447927307;
+
+                if (g < 0)
+                    g = 0;
+                if (g > 255)
+                    g = 255;
+                if (b < 0)
+                    b = 0;
+                if (b > 255)
+                    b = 255;
+                g = Math.round(g), b = Math.round(b);
+                color[i] = "rgb(" + r + "," + g + "," + b + ")";
+            }*/
+        }
+
+        var dsx = 0.0, dsy = 0.0, dx = 0.0, dy = 0.0;
+        var ox = centerx, oy = centery, OL = L, OD = D;
+        function dragstart(event)
+        {
+            var a = getMousePos(event);
+            dsx = a[0], dsy = a[1];
+            ox = centerx;
+            oy = centery;
+            OL = L;
+            OD = D;
+        }
+
+        function drag(event)
+        {
+            var a = getMousePos(event);
+            dx = a[0], dy = a[1];
+            centery = oy + (dx - dsx) * W / Wp;
+            centerx = ox + (dy - dsy) * H / Hp;
+            L = OL + (dx - dsx) * W / Wp;
+            D = OD + (dy - dsy) * H / Hp;
+            g_initialize();
+        }
+
+        function dragover(event)
+        {
+            event.preventDefault();
+        }
+
+        function Click()
+        {
+            fl2 = 1 - fl2;
+            g_initialize();
+        }
+
+        function Click2()
+        {
+            fl3 = 1 - fl3;
+            g_initialize();
+        }
+
+        //var sx = centery - k * Math.sqrt(2) / 2, sy = centerx + k * Math.sqrt(2) / 2;
+        function wd()
+        {
+            var xml2;
+            var xmlDoc2;
+            var $xml2;
+
+            sx = L, sy = H + D;
+
+            var i, j;
+            for (i = 0; i < 10; i++)
+                for (j = 0; j < 10; j++) {
+                    try {
+                        xml2 = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?lat=" + (sx + H * j / 9) % 90 + "&lon=" + (centery + W * i / 9) % 180 + "&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml");
+                        xmlDoc2 = $.parseXML(xml2);
+                        $xml2 = $(xmlDoc2);
+                        wind[j * 10 + i] = $xml2.find("windDirection")[0].getAttribute("code");
+
+                    } catch(e){
+                        xml2 = getLocalFile("http://api.openweathermap.org/data/2.5/forecast?lat=" + (sx + 1 + H * j / 9) % 90 + "&lon=" + (centery + 1 + W * i / 9) % 180 + "&appid=9bbfa9413de33a567ffad6d327ed537e&mode=xml");
+                        xmlDoc2 = $.parseXML(xml2);
+                        $xml2 = $(xmlDoc2);
+                        wind[j * 10 + i] = $xml2.find("windDirection")[0].getAttribute("code");
+                    }
+                }
+
+        }
+    </script>
+</head>
+
+<body ondragover = "dragover(event)" style = "background-image: url('4.jpg'); background-position: 40% 106%; background-repeat: no-repeat;">
+<canvas id="myCanvas" width="1900px" height="650px" style="border:1px solid grey" draggable="true"></canvas>
+<input type = "text" id = "i_1" onchange = "wether()" style = "color:teal; width: 300px; height: 30px; margin-left: 0px"/>
+<div id="d_1" style="font-size:xx-large; color: black; margin-left: 0px; background-color: beige;"></div>
+<button onclick="Click()">Temperature</button>
+<button onclick="Click2()">Wind</button>
+</body>
+</html>
